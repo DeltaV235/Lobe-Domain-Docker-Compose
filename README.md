@@ -22,54 +22,52 @@
 - Docker >= 20.10
 - Docker Compose >= 2.0
 
-### 初始化项目
-
-在启动 Docker Compose 之前，需要先获取 LobeChat 官方配置并合并本项目的个性化配置：
-
-1. **执行官方安装脚本**
-
-   ```bash
-   # 执行官方 setup 脚本生成初始配置文件
-   bash <(curl -fsSL https://lobe.li/setup.sh) -l zh_CN
-   ```
-
-   ⚠️ **重要**：在交互式脚本执行过程中：
-   - 当询问部署模式时，请选择 **`domain`** 模式（而非 `local` 模式）
-   - 这样生成的配置文件会包含域名相关的配置项，便于后续与本项目的 Nginx 反向代理集成
-
-   该脚本会自动生成：
-   - `docker-compose.yml` - 官方 Docker Compose 配置
-   - `.env` - 环境变量配置文件
-   - 必要的密钥和配置项
-
-2. **合并个性化配置**
-
-   将官方生成的配置与本项目的 `compose.yaml`、`.env`、`nginx.conf` 等配置文件合并，保留本项目的个性化定制部分（Nginx、Certbot、Cloudflared 等）。
-
-3. **（可选）禁用 Cloudflare Tunnel**
-
-   如果你不需要使用 Cloudflare Tunnel 暴露服务到公网，需要在 `compose.yaml` 中注释或移除相关配置：
-
-   ```yaml
-   # 注释或删除以下服务
-   # cloudflared:
-   #   image: cloudflare/cloudflared:latest
-   #   container_name: lobe-cloudflared
-   #   restart: unless-stopped
-   #   command: tunnel --no-autoupdate --protocol http2 run
-   #   environment:
-   #     - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
-   #   networks:
-   #     - lobe-network
-   ```
-
-   同时可以移除 `.env` 文件中的 `CLOUDFLARE_TUNNEL_TOKEN` 配置项。
-
-   💡 **提示**：如果你有公网 IP 或使用其他方式暴露服务，可以跳过 Cloudflare Tunnel 配置。
-
 ### 配置步骤
 
-#### 1. 配置域名信息 ⚠️
+#### 1. 执行官方安装脚本
+
+在启动 Docker Compose 之前，需要先获取 LobeChat 官方配置：
+
+```bash
+# 执行官方 setup 脚本生成初始配置文件
+bash <(curl -fsSL https://lobe.li/setup.sh) -l zh_CN
+```
+
+⚠️ **重要**：在交互式脚本执行过程中：
+- 当询问部署模式时，请选择 **`domain`** 模式（而非 `local` 模式）
+- 这样生成的配置文件会包含域名相关的配置项，便于后续与本项目的 Nginx 反向代理集成
+
+该脚本会自动生成：
+- `docker-compose.yml` - 官方 Docker Compose 配置
+- `.env` - 环境变量配置文件
+- 必要的密钥和配置项
+
+#### 2. 合并个性化配置
+
+将官方生成的配置与本项目的 `compose.yaml`、`.env`、`nginx.conf` 等配置文件合并，保留本项目的个性化定制部分（Nginx、Certbot、Cloudflared 等）。
+
+#### 3. （可选）禁用 Cloudflare Tunnel
+
+如果你不需要使用 Cloudflare Tunnel 暴露服务到公网，需要在 `compose.yaml` 中注释或移除相关配置：
+
+```yaml
+# 注释或删除以下服务
+# cloudflared:
+#   image: cloudflare/cloudflared:latest
+#   container_name: lobe-cloudflared
+#   restart: unless-stopped
+#   command: tunnel --no-autoupdate --protocol http2 run
+#   environment:
+#     - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+#   networks:
+#     - lobe-network
+```
+
+同时可以移除 `.env` 文件中的 `CLOUDFLARE_TUNNEL_TOKEN` 配置项。
+
+💡 **提示**：如果你有公网 IP 或使用其他方式暴露服务，可以跳过 Cloudflare Tunnel 配置。
+
+#### 4. 配置域名信息 ⚠️
 
 在正式部署前，你需要将所有示例域名 `example.com` 替换为你的实际域名。
 
@@ -123,23 +121,44 @@ CLOUDFLARE_TUNNEL_TOKEN=your_tunnel_token
 - [ ] `.env`: `CERTBOT_DOMAINS` 已配置为实际的通配符域名
 - [ ] `.env`: 所有必填密钥已生成并填写（7 个配置项）
 
-#### 2. 配置 Cloudflare DNS 凭证
+#### 5. 配置 Cloudflare DNS 凭证
 
-   编辑 `certbot-credentials/cloudflare.ini`，填入你的 Cloudflare API Token。
+编辑 `certbot-credentials/cloudflare.ini`，填入你的 Cloudflare API Token。
 
-#### 3. 创建 Nginx 日志目录
+#### 6. 创建 Nginx 日志目录
 
-   在项目根目录下创建 `nginx-logs` 目录用于存储 Nginx 访问日志和错误日志：
+在项目根目录下创建 `nginx-logs` 目录用于存储 Nginx 访问日志和错误日志：
 
-   ```bash
-   mkdir -p nginx-logs
+```bash
+mkdir -p nginx-logs
+```
+
+该目录会被挂载到 Nginx 容器的 `/var/log/nginx` 路径，用于存储：
+- 主日志：`access.log`、`error.log`
+- LobeChat 日志：`lobe-access.log`、`lobe-error.log`
+- Casdoor 日志：`casdoor-access.log`、`casdoor-error.log`
+- MinIO 日志：`minio-access.log`、`minio-error.log`、`minio-console-access.log`、`minio-console-error.log`
+
+#### 7. 配置 Casdoor 重定向 URL
+
+在 Casdoor 中为 LobeChat 应用配置重定向 URL，以确保 SSO 登录流程正常工作：
+
+1. 访问 Casdoor 管理后台：`https://auth.example.com`
+2. 登录后进入 **Applications** 页面
+3. 找到 LobeChat 对应的应用（通常名称为 `lobe-chat` 或在 `.env` 中 `AUTH_CASDOOR_ID` 配置的应用）
+4. 点击编辑应用
+5. 在 **Redirect URLs** 字段中添加以下 URL：
    ```
+   https://lobe.example.com/api/auth/callback/casdoor
+   ```
+   ⚠️ **注意**：将 `lobe.example.com` 替换为你实际配置的 LobeChat 域名
 
-   该目录会被挂载到 Nginx 容器的 `/var/log/nginx` 路径，用于存储：
-   - 主日志：`access.log`、`error.log`
-   - LobeChat 日志：`lobe-access.log`、`lobe-error.log`
-   - Casdoor 日志：`casdoor-access.log`、`casdoor-error.log`
-   - MinIO 日志：`minio-access.log`、`minio-error.log`、`minio-console-access.log`、`minio-console-error.log`
+6. 保存配置
+
+💡 **提示**：
+- 重定向 URL 必须与 `.env` 文件中的 `APP_URL` 配置一致
+- 如果修改了域名，需要同步更新 Casdoor 中的重定向 URL
+- 重定向 URL 格式必须为：`{APP_URL}/api/auth/callback/casdoor`
 
 ### SSL 证书首次获取
 
