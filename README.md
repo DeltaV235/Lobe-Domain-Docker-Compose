@@ -46,6 +46,27 @@
 
    将官方生成的配置与本项目的 `compose.yaml`、`.env`、`nginx.conf` 等配置文件合并，保留本项目的个性化定制部分（Nginx、Certbot、Cloudflared 等）。
 
+3. **（可选）禁用 Cloudflare Tunnel**
+
+   如果你不需要使用 Cloudflare Tunnel 暴露服务到公网，需要在 `compose.yaml` 中注释或移除相关配置：
+
+   ```yaml
+   # 注释或删除以下服务
+   # cloudflared:
+   #   image: cloudflare/cloudflared:latest
+   #   container_name: lobe-cloudflared
+   #   restart: unless-stopped
+   #   command: tunnel --no-autoupdate --protocol http2 run
+   #   environment:
+   #     - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+   #   networks:
+   #     - lobe-network
+   ```
+
+   同时可以移除 `.env` 文件中的 `CLOUDFLARE_TUNNEL_TOKEN` 配置项。
+
+   💡 **提示**：如果你有公网 IP 或使用其他方式暴露服务，可以跳过 Cloudflare Tunnel 配置。
+
 ### 配置步骤
 
 #### 1. 配置域名信息 ⚠️
@@ -298,6 +319,69 @@ INF Tunnel is running
 ```
 
 现在你可以通过 Cloudflare Tunnel 从公网访问你的服务了！
+
+#### 5. （可选）配置 Cloudflare Access 访问控制
+
+如果你需要为 Tunnel 添加身份验证保护，可以配置 Cloudflare Access 来控制访问权限：
+
+1. **创建 Access Application**
+
+   - 在 Cloudflare Zero Trust Dashboard 中，进入 **Access** → **Applications**
+   - 点击 **Add an application**
+   - 选择 **Self-hosted** 类型
+
+2. **配置应用基本信息**
+
+   - **Application name**: 输入应用名称（如 `LobeChat Access`）
+   - **Session Duration**: 设置会话持续时间（如 `24 hours`）
+   - **Application domain**:
+     - 添加需要保护的域名，如：
+       - `lobe.example.com`
+       - `auth.example.com`
+       - `minio.example.com`
+       - `minio-ui.example.com`
+   - **Input Method**: 选择 `Default`
+
+3. **配置访问策略（Policies）**
+
+   切换到 **Policies** 标签页：
+
+   - 选择 **Create new policy**（或使用 **Select existing policies** 复用已有策略）
+   - **Policy name**: 输入策略名称（如 `Email Authentication`）
+   - **Action**: 选择 `Allow`
+   - **Add rules**: 选择身份验证方式
+     - 推荐使用 **Emails** 进行验证
+     - 例如：添加你的邮箱地址，只允许指定邮箱访问
+   - 点击 **Next** 或 **Save policy**
+
+4. **配置 CORS 设置（重要）**
+
+   切换到 **Advanced Settings** 标签页 → 展开 **Cross-Origin Resource Sharing (CORS) Settings**：
+
+   - ✅ 勾选 **Bypass OPTIONS request to origin**
+
+   ⚠️ **为什么需要启用此选项**：
+   - MinIO S3 服务会从浏览器直接发起跨域请求
+   - OPTIONS 预检请求需要直接传递到源服务器，否则会导致 S3 上传/下载失败
+
+5. **保存并测试**
+
+   - 点击 **Save application**
+   - 访问你配置的域名（如 `https://lobe.example.com`）
+   - 首次访问时会跳转到 Cloudflare Access 登录页面
+   - 使用配置的身份验证方式（如邮箱）完成验证
+   - 验证成功后即可访问服务
+
+**配置完成后的访问流程：**
+
+```
+用户访问 → Cloudflare Access 验证 → 身份认证 → Cloudflare Tunnel → Nginx → 后端服务
+```
+
+💡 **提示**：
+- 如果只想保护特定服务，可以只为部分域名配置 Access
+- Access 策略支持多种身份验证方式：邮箱、Google、GitHub、一次性 PIN 码等
+- 可以为不同的应用配置不同的访问策略
 
 ## 📂 目录结构
 
