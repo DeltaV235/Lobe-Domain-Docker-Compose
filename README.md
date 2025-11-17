@@ -44,39 +44,61 @@
 
 ### 配置步骤
 
-1. **配置环境变量**
+#### 1. 配置域名信息 ⚠️
 
-   编辑 `.env` 文件，配置以下必需项：
+在正式部署前，你需要将所有示例域名 `example.com` 替换为你的实际域名。
 
-   ```bash
-   # 数据库密码
-   POSTGRES_PASSWORD=your_secure_password
+**需要修改 `nginx.conf` 中的域名：**
 
-   # Casdoor 认证配置
-   AUTH_CASDOOR_ID=your_casdoor_app_id
-   AUTH_CASDOOR_SECRET=your_casdoor_app_secret
-   AUTH_CASDOOR_ISSUER=https://auth.example.com
+将以下域名替换为你的实际域名：
+- `lobe.example.com` → 你的 LobeChat 应用域名
+- `auth.example.com` → 你的 Casdoor 认证服务域名
+- `minio.example.com` → 你的 MinIO API 域名
+- `minio-ui.example.com` → 你的 MinIO 控制台域名
 
-   # MinIO S3 配置
-   MINIO_ROOT_PASSWORD=your_minio_password
-   S3_PUBLIC_DOMAIN=https://minio.example.com
-   S3_ENDPOINT=https://minio.example.com
+同时修改 SSL 证书路径中的域名：
+```nginx
+# 将所有证书路径中的 example.com 替换为你的主域名
+ssl_certificate /etc/letsencrypt/live/your-domain.com/fullchain.pem;
+ssl_certificate_key /etc/letsencrypt/live/your-domain.com/privkey.pem;
+```
 
-   # 应用域名
-   APP_URL=https://lobe.example.com
+**需要修改 `.env` 文件中的域名和密钥：**
 
-   # Certbot 配置
-   CERTBOT_EMAIL=your_email@example.com
-   CERTBOT_DOMAINS=*.example.com,example.com
+```bash
+# 应用域名配置
+APP_URL=https://lobe.your-domain.com
+AUTH_CASDOOR_ISSUER=https://auth.your-domain.com
+S3_PUBLIC_DOMAIN=https://minio.your-domain.com
+S3_ENDPOINT=https://minio.your-domain.com
+origin=https://auth.your-domain.com
 
-   # Cloudflare Tunnel Token
-   CLOUDFLARE_TUNNEL_TOKEN=your_tunnel_token
+# SSL 证书配置
+CERTBOT_EMAIL=your-email@example.com
+CERTBOT_DOMAINS=*.your-domain.com,your-domain.com
 
-   # 模型提供商 API Key
-   OPENROUTER_API_KEY=your_api_key
-   ```
+# 必填密钥（需要生成或配置）
+POSTGRES_PASSWORD=your_secure_password
+AUTH_CASDOOR_ID=your_casdoor_app_id
+AUTH_CASDOOR_SECRET=your_casdoor_app_secret
+MINIO_ROOT_PASSWORD=your_minio_password
+OPENROUTER_API_KEY=your_api_key
+CLOUDFLARE_TUNNEL_TOKEN=your_tunnel_token
+```
 
-2. **配置 Cloudflare DNS 凭证**
+**配置检查清单：**
+
+完成域名配置后，请确认以下内容已全部修改：
+
+- [ ] `nginx.conf`: 所有 `*.example.com` 域名已替换（共 4 个子域名）
+- [ ] `nginx.conf`: 所有 SSL 证书路径中的 `example.com` 已替换（共 4 处）
+- [ ] `.env`: `APP_URL` 已配置为实际域名
+- [ ] `.env`: `AUTH_CASDOOR_ISSUER` 和 `origin` 已配置为实际域名
+- [ ] `.env`: `S3_PUBLIC_DOMAIN` 和 `S3_ENDPOINT` 已配置为实际域名
+- [ ] `.env`: `CERTBOT_DOMAINS` 已配置为实际的通配符域名
+- [ ] `.env`: 所有必填密钥已生成并填写（7 个配置项）
+
+#### 2. 配置 Cloudflare DNS 凭证
 
    编辑 `certbot-credentials/cloudflare.ini`，填入你的 Cloudflare API Token。
 
