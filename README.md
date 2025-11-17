@@ -218,6 +218,87 @@ Certbot 容器会自动处理证书续期，通过 `certbot-entrypoint.sh` 脚�
 
 编辑 `nginx.conf` 文件可以自定义反向代理规则。
 
+### 配置 Cloudflare Tunnel
+
+如果你需要通过 Cloudflare Tunnel 暴露服务到公网，请按以下步骤配置：
+
+#### 1. 创建 Cloudflare Tunnel
+
+1. 登录 [Cloudflare Zero Trust Dashboard](https://one.dash.cloudflare.com/)
+2. 进入 **Networks** → **Tunnels**
+3. 点击 **Create a tunnel**
+4. 选择 **Cloudflared** 作为连接器类型
+5. 输入 Tunnel 名称（如 `lobe-chat-tunnel`）
+6. 在安装连接器页面，选择 **Docker** 选项卡
+7. **复制显示的 Token**（格式类似：`eyJhIjoixxxxx...`）
+8. 将 Token 填入项目 `.env` 文件的 `CLOUDFLARE_TUNNEL_TOKEN` 变量中
+
+   ```bash
+   CLOUDFLARE_TUNNEL_TOKEN=eyJhIjoixxxxx...
+   ```
+
+9. 点击 **Next** 进入路由配置
+
+#### 2. 配置 Public Hostname（应用路由）
+
+在 Tunnel 的 **Public Hostname** 标签页中，为每个服务添加路由映射：
+
+| 服务 | Subdomain | Domain | Type | URL |
+|-----|-----------|--------|------|-----|
+| LobeChat | lobe | example.com | HTTPS | nginx:443 |
+| Casdoor | auth | example.com | HTTPS | nginx:443 |
+| MinIO API | minio | example.com | HTTPS | nginx:443 |
+| MinIO Console | minio-ui | example.com | HTTPS | nginx:443 |
+
+**添加步骤：**
+
+1. 点击 **Add a public hostname**
+2. 填写配置：
+   - **Subdomain**: `lobe`（或其他子域名）
+   - **Domain**: 选择你的域名 `example.com`
+   - **Path**: 留空
+   - **Type**: 选择 `HTTPS`
+   - **URL**: 填写 `nginx:443`
+
+3. 展开 **Additional application settings**
+4. 进入 **TLS** 选项卡
+5. 在 **Origin Server Name** 中填写完整域名：`lobe.example.com`
+6. 点击 **Save hostname**
+
+**重要配置说明：**
+
+- **Type 必须选择 HTTPS**：因为 Nginx 监听的是 443 端口
+- **URL 填写 nginx:443**：这是 Docker 内部网络的服务名和端口
+- **Origin Server Name 必须填写**：填写对应的完整域名（如 `lobe.example.com`），这样 Cloudflare Tunnel 才能正确进行 SNI（Server Name Indication）握手，Nginx 才能根据域名路由到正确的虚拟主机
+
+#### 3. 重复配置其他服务
+
+按照步骤 2 的方法，分别为以下服务添加路由：
+
+- **auth.example.com** → nginx:443（Origin Server Name: `auth.example.com`）
+- **minio.example.com** → nginx:443（Origin Server Name: `minio.example.com`）
+- **minio-ui.example.com** → nginx:443（Origin Server Name: `minio-ui.example.com`）
+
+#### 4. 启动 Cloudflared 服务
+
+配置完成后，启动或重启 Docker Compose：
+
+```bash
+docker compose up -d cloudflared
+
+# 查看 Cloudflared 日志确认连接状态
+docker compose logs -f cloudflared
+```
+
+成功连接后，你应该能看到类似以下日志：
+
+```
+INF Connection registered connIndex=0
+INF Tunnel is running
+```
+
+现在你可以通过 Cloudflare Tunnel 从公网访问你的服务了！
+
 ## 📂 目录结构
 
 ```
