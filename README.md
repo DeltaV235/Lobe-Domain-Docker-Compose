@@ -33,6 +33,10 @@
    bash <(curl -fsSL https://lobe.li/setup.sh) -l zh_CN
    ```
 
+   ⚠️ **重要**：在交互式脚本执行过程中：
+   - 当询问部署模式时，请选择 **`domain`** 模式（而非 `local` 模式）
+   - 这样生成的配置文件会包含域名相关的配置项，便于后续与本项目的 Nginx 反向代理集成
+
    该脚本会自动生成：
    - `docker-compose.yml` - 官方 Docker Compose 配置
    - `.env` - 环境变量配置文件
@@ -101,6 +105,20 @@ CLOUDFLARE_TUNNEL_TOKEN=your_tunnel_token
 #### 2. 配置 Cloudflare DNS 凭证
 
    编辑 `certbot-credentials/cloudflare.ini`，填入你的 Cloudflare API Token。
+
+#### 3. 创建 Nginx 日志目录
+
+   在项目根目录下创建 `nginx-logs` 目录用于存储 Nginx 访问日志和错误日志：
+
+   ```bash
+   mkdir -p nginx-logs
+   ```
+
+   该目录会被挂载到 Nginx 容器的 `/var/log/nginx` 路径，用于存储：
+   - 主日志：`access.log`、`error.log`
+   - LobeChat 日志：`lobe-access.log`、`lobe-error.log`
+   - Casdoor 日志：`casdoor-access.log`、`casdoor-error.log`
+   - MinIO 日志：`minio-access.log`、`minio-error.log`、`minio-console-access.log`、`minio-console-error.log`
 
 ### SSL 证书首次获取
 
